@@ -18,6 +18,22 @@ class WindowManager {
 		}
 	}
 
+	private _scrollToHighlightedHeading(windowContainer: HTMLElement) {
+		const highlightedItem = windowContainer.querySelector("li.highlight") as HTMLElement;
+		if (!highlightedItem) return;
+
+		// 计算滚动位置，使高亮项在视图中间偏上位置
+		const containerHeight = windowContainer.clientHeight;
+		const itemTop = highlightedItem.offsetTop;
+		const itemHeight = highlightedItem.clientHeight;
+		
+		// 将高亮项滚动到容器的 1/3 处，这样上方和下方都能看到一些内容
+		const targetScrollTop = itemTop - containerHeight / 3;
+
+		// 使用即时滚动，移除平滑效果
+		windowContainer.scrollTop = targetScrollTop;
+	}
+
 	private _createWindowHTML(plugin: DynamicOutlinePlugin): HTMLDivElement {
 		// Create main element
 		const mainElement: HTMLDivElement = createEl("div", {
@@ -92,8 +108,13 @@ class WindowManager {
 			inputField?.focus();
 		}
 
+		// 大纲视图打开时，高亮当前标题并滚动到对应位置
 		if (plugin.settings.highlightCurrentHeading) {
 			plugin.highlightCurrentHeading();
+			// 等待 DOM 更新后滚动到高亮项
+			requestAnimationFrame(() => {
+				this._scrollToHighlightedHeading(windowContainer);
+			});
 		}
 
 		const button: HTMLButtonElement | null =
@@ -114,9 +135,6 @@ class WindowManager {
 		view: MarkdownView | null,
 		plugin: DynamicOutlinePlugin
 	) {
-		// 保存当前滚动位置
-		this._saveScrollPosition(windowContainer);
-
 		const ulElement: HTMLUListElement | null =
 			windowContainer.querySelector("ul");
 		if (!ulElement) return;
@@ -128,9 +146,6 @@ class WindowManager {
 			ulElement.append(liElement);
 
 			liElement.onclick = () => {
-				// 保存点击时的滚动位置
-				this._saveScrollPosition(windowContainer);
-
 				// @ts-ignore: TS2345
 				view.leaf.openFile(view.file, {
 					eState: { line: heading.position.start.line },
@@ -150,16 +165,13 @@ class WindowManager {
 					}
 				}
 
-				// 使用 requestAnimationFrame 确保在下一帧恢复滚动位置
-				requestAnimationFrame(() => {
-					this._restoreScrollPosition(windowContainer);
-				});
+				// 点击后只更新高亮状态，不滚动大纲视图
+				setTimeout(() => {
+					if (plugin.settings.highlightCurrentHeading) {
+						plugin.highlightCurrentHeading();
+					}
+				}, 100);
 			};
-		});
-
-		// 恢复滚动位置
-		requestAnimationFrame(() => {
-			this._restoreScrollPosition(windowContainer);
 		});
 	}
 
