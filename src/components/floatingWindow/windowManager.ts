@@ -6,6 +6,18 @@ import { InputWithClear } from "./inputField";
 export { WindowManager };
 
 class WindowManager {
+	private _lastScrollPosition: number = 0;
+
+	private _saveScrollPosition(container: HTMLElement) {
+		this._lastScrollPosition = container.scrollTop;
+	}
+
+	private _restoreScrollPosition(container: HTMLElement) {
+		if (this._lastScrollPosition > 0) {
+			container.scrollTop = this._lastScrollPosition;
+		}
+	}
+
 	private _createWindowHTML(plugin: DynamicOutlinePlugin): HTMLDivElement {
 		// Create main element
 		const mainElement: HTMLDivElement = createEl("div", {
@@ -55,6 +67,9 @@ class WindowManager {
 			windowContainer.querySelector("input");
 		if (inputField) {
 			plugin.registerDomEvent(inputField, "input", () => {
+				// 保存搜索前的滚动位置
+				this._saveScrollPosition(windowContainer);
+
 				const value: string = inputField.value.toLowerCase();
 				const outlineItems = windowContainer.querySelectorAll("li");
 				outlineItems?.forEach((item: HTMLLIElement) => {
@@ -63,6 +78,11 @@ class WindowManager {
 					} else {
 						item.classList.add("outline-item-hidden");
 					}
+				});
+
+				// 恢复滚动位置
+				requestAnimationFrame(() => {
+					this._restoreScrollPosition(windowContainer);
 				});
 			});
 		}
@@ -94,6 +114,9 @@ class WindowManager {
 		view: MarkdownView | null,
 		plugin: DynamicOutlinePlugin
 	) {
+		// 保存当前滚动位置
+		this._saveScrollPosition(windowContainer);
+
 		const ulElement: HTMLUListElement | null =
 			windowContainer.querySelector("ul");
 		if (!ulElement) return;
@@ -104,16 +127,19 @@ class WindowManager {
 			const liElement = this._createWindowListElement(heading);
 			ulElement.append(liElement);
 
-			liElement.onclick = function () {
+			liElement.onclick = () => {
+				// 保存点击时的滚动位置
+				this._saveScrollPosition(windowContainer);
+
 				// @ts-ignore: TS2345
 				view.leaf.openFile(view.file, {
 					eState: { line: heading.position.start.line },
 				});
+
 				if (plugin.settings.resetSearchFieldOnHeadingClick) {
 					const inputField: HTMLInputElement | null =
 						windowContainer.querySelector("input");
 					if (inputField) {
-						// repeats the same code from inputField.ts
 						inputField.value = "";
 						const inputEvent = new Event("input", {
 							bubbles: true,
@@ -123,7 +149,17 @@ class WindowManager {
 						inputField.focus();
 					}
 				}
+
+				// 使用 requestAnimationFrame 确保在下一帧恢复滚动位置
+				requestAnimationFrame(() => {
+					this._restoreScrollPosition(windowContainer);
+				});
 			};
+		});
+
+		// 恢复滚动位置
+		requestAnimationFrame(() => {
+			this._restoreScrollPosition(windowContainer);
 		});
 	}
 
