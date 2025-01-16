@@ -1,5 +1,5 @@
+import { MarkdownView, setIcon, WorkspaceLeaf, Plugin } from "obsidian";
 import DynamicOutlinePlugin from "main";
-import { MarkdownView, setIcon, WorkspaceLeaf } from "obsidian";
 
 export { BUTTON_CLASS, ButtonManager };
 
@@ -7,6 +7,15 @@ const LUCID_ICON_NAME = "list";
 const BUTTON_CLASS = "dynamic-outline-button";
 
 class ButtonManager {
+	private hideTimeout: number | null = null;
+
+	private clearHideTimeout() {
+		if (this.hideTimeout) {
+			window.clearTimeout(this.hideTimeout);
+			this.hideTimeout = null;
+		}
+	}
+
 	private _createButtonHTML(): HTMLButtonElement {
 		const button: HTMLButtonElement = createEl("button", {
 			cls: `clickable-icon view-action ${BUTTON_CLASS}`,
@@ -20,32 +29,85 @@ class ButtonManager {
 
 	private _handleButtonClick(
 		event: MouseEvent,
-		plugin: DynamicOutlinePlugin
+		plugin: Plugin
 	) {
 		const button = event.target as HTMLButtonElement;
 		const markdownView: MarkdownView | null =
-			plugin.getActiveMarkdownView();
+			(plugin as DynamicOutlinePlugin).getActiveMarkdownView();
 
 		if (!markdownView) return;
 
 		const windowContainer: HTMLElement | null | undefined =
-			plugin.windowManager.getWindowFromView(markdownView);
+			(plugin as DynamicOutlinePlugin).windowManager.getWindowFromView(markdownView);
 
 		if (!windowContainer) {
-			plugin.windowManager.createWindowInView(
+			(plugin as DynamicOutlinePlugin).windowManager.createWindowInView(
 				markdownView,
-				plugin.headingsManager.getHeadingsForView(markdownView, plugin),
-				plugin
+				(plugin as DynamicOutlinePlugin).headingsManager.getHeadingsForView(markdownView, plugin as DynamicOutlinePlugin),
+				plugin as DynamicOutlinePlugin
 			);
-			// button?.classList.add("button-active");
 		} else {
-			plugin.windowManager.hideWindow(windowContainer, button);
-			// button?.classList.remove("button-active");
+			(plugin as DynamicOutlinePlugin).windowManager.hideWindow(windowContainer, button);
 		}
 	}
 
-	// Do I need the leaf? Maybe the view right away?
-	addButtonToLeaf(leaf: WorkspaceLeaf, plugin: DynamicOutlinePlugin) {
+	private _handleButtonHover(
+		event: MouseEvent,
+		plugin: Plugin,
+		isEnter: boolean
+	) {
+		const button = event.target as HTMLButtonElement;
+		const markdownView: MarkdownView | null =
+			(plugin as DynamicOutlinePlugin).getActiveMarkdownView();
+
+		if (!markdownView) return;
+
+		const windowContainer: HTMLElement | null | undefined =
+			(plugin as DynamicOutlinePlugin).windowManager.getWindowFromView(markdownView);
+
+		if (isEnter) {
+			this.clearHideTimeout();
+
+			if (!windowContainer) {
+				const container = (plugin as DynamicOutlinePlugin).windowManager.createWindowInView(
+					markdownView,
+					(plugin as DynamicOutlinePlugin).headingsManager.getHeadingsForView(markdownView, plugin as DynamicOutlinePlugin),
+					plugin as DynamicOutlinePlugin
+				);
+
+				plugin.registerDomEvent(
+					container,
+					"mouseenter",
+					() => {
+						this.clearHideTimeout();
+					}
+				);
+
+				plugin.registerDomEvent(
+					container,
+					"mouseleave",
+					() => {
+						this.clearHideTimeout();
+						this.hideTimeout = window.setTimeout(() => {
+							if (!button.matches(":hover")) {
+								(plugin as DynamicOutlinePlugin).windowManager.hideWindow(container, button);
+							}
+						}, 200);
+					}
+				);
+			}
+		} else if (!isEnter && windowContainer) {
+			this.clearHideTimeout();
+			this.hideTimeout = window.setTimeout(() => {
+				const container = (plugin as DynamicOutlinePlugin).windowManager.getWindowFromView(markdownView);
+				if (container && !container.matches(":hover")) {
+					(plugin as DynamicOutlinePlugin).windowManager.hideWindow(container, button);
+				}
+			}, 200);
+		}
+	}
+
+	addButtonToLeaf(leaf: WorkspaceLeaf, plugin: Plugin) {
 		if (this.getButtonFromLeaf(leaf)) return;
 
 		const markdownActionButtons: HTMLElement | null =
@@ -58,21 +120,33 @@ class ButtonManager {
 			markdownActionButtons.firstChild
 		);
 
-		// Probably move to main.ts (?)
+		// Register hover events
+		plugin.registerDomEvent(
+			newButton,
+			"mouseenter",
+			(event: MouseEvent) => this._handleButtonHover(event, plugin, true)
+		);
+
+		plugin.registerDomEvent(
+			newButton,
+			"mouseleave",
+			(event: MouseEvent) => this._handleButtonHover(event, plugin, false)
+		);
+
+		// Register click event
 		plugin.registerDomEvent(
 			newButton,
 			"click",
-			// (event) => plugin.onButtonClick(event)
-			(event) => this._handleButtonClick(event, plugin)
+			(event: MouseEvent) => this._handleButtonClick(event, plugin)
 		);
 
 		return newButton;
 	}
 
-	addButtonToLeaves(plugin: DynamicOutlinePlugin) {
-		plugin.app.workspace.onLayoutReady(() => {
+	addButtonToLeaves(plugin: Plugin) {
+		(plugin as DynamicOutlinePlugin).app.workspace.onLayoutReady(() => {
 			const markdownLeaves: WorkspaceLeaf[] =
-				plugin.getAllMarkdownLeaves();
+				(plugin as DynamicOutlinePlugin).getAllMarkdownLeaves();
 			markdownLeaves.forEach((leaf) => {
 				this.addButtonToLeaf(leaf, plugin);
 			});
@@ -87,8 +161,8 @@ class ButtonManager {
 		this.getButtonFromLeaf(leaf)?.remove();
 	}
 
-	removeButtonFromLeaves(plugin: DynamicOutlinePlugin) {
-		const markdowns = plugin.getAllMarkdownLeaves();
+	removeButtonFromLeaves(plugin: Plugin) {
+		const markdowns = (plugin as DynamicOutlinePlugin).getAllMarkdownLeaves();
 		markdowns.forEach((md) => {
 			this.removeButtonFromLeaf(md);
 		});

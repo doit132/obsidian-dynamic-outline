@@ -93,12 +93,12 @@ settings:
 
     top: 40px;
     right: 20px;
-    /* right: 10%; */
 
     min-height: max-content;
     max-height: calc(100% - 50px);
-    /* width: 256px; */
-    width: var(--dynamic-outline-window-width);
+    min-width: var(--dynamic-outline-window-width);
+    width: fit-content;
+    max-width: min(calc(100vw - 40px), 512px);
     padding: 10px 15px 5px;
 
     overflow-y: auto;
@@ -109,7 +109,14 @@ settings:
     border-radius: 12px;
     box-shadow: var(--dynamic-outline-shadow-color) 0px 2px 8px 0px;
 
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out;
+}
+
+#dynamic-outline.visible {
     opacity: var(--dynamic-outline-opacity);
+    visibility: visible;
 }
 
 #dynamic-outline:hover {
@@ -118,8 +125,8 @@ settings:
 
 #dynamic-outline li {
     display: flex;
-    align-items: flex-start;
-
+    align-items: center;
+    width: 100%;
     padding: 7px 0;
     transition: background 25ms linear;
     cursor: pointer;
@@ -152,6 +159,10 @@ settings:
     padding: 0px 8px;
     color: var(--dynamic-outline-text-color);
     text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
 }
 
 #dynamic-outline li .heading-level-1 {
@@ -179,10 +190,9 @@ settings:
 }
 
 .dynamic-outline-search-container {
-    /* margin-top: 10px; */
+    width: 100%;
     margin-bottom: 5px;
     font-size: var(--dynamic-outline-font-size);
-
     display: flex;
     align-items: center;
 }
@@ -215,6 +225,9 @@ settings:
     display: block;
     width: 100%;
     padding-inline-start: 32px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .dynamic-outline-search-container input.has-content {

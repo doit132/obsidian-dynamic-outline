@@ -80,6 +80,11 @@ class WindowManager {
 			plugin.buttonManager.getButtonFromLeaf(view.leaf);
 		button?.classList.add("button-active");
 
+		// Add visible class after a small delay to trigger transition
+		setTimeout(() => {
+			windowContainer.classList.add("visible");
+		}, 0);
+
 		return windowContainer;
 	}
 
@@ -167,7 +172,13 @@ class WindowManager {
 		container: HTMLElement | null,
 		button?: HTMLButtonElement | null
 	): void {
-		container?.remove();
+		if (container) {
+			container.classList.remove("visible");
+			// Remove container after transition
+			setTimeout(() => {
+				container.remove();
+			}, 200); // Match the transition duration in CSS
+		}
 		button?.classList.remove("button-active");
 	}
 
